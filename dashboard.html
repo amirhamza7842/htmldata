@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Employee Dashboard</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f4f4f4;
+        }
+
+        #dashboard-container {
+            background-color: #fd2803;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            color: #fff;
+        }
+
+        #dashboard-container h1 {
+            font-size: 28px;
+            margin-bottom: 20px;
+        }
+
+        p {
+            font-size: 18px;
+            margin: 10px 0;
+        }
+
+        button {
+            background-color: #2ecc71;
+            color: #fff;
+            cursor: pointer;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            font-size: 18px;
+            margin-top: 20px;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #27ae60;
+        }
+    </style>
+</head>
+<body>
+
+<div id="dashboard-container">
+    <h1>Welcome to Employee Dashboard</h1>
+    <p id="employee-info"></p>
+    <p id="location-info"></p>
+    <button id="logout-btn" onclick="logout()">Logout</button>
+</div>
+
+<script>
+    // Retrieve or initialize the total working time from localStorage
+    var totalWorkingTime = parseInt(localStorage.getItem("totalWorkingTime")) || 0;
+
+    // Retrieve employee information from localStorage
+    var employeeName = localStorage.getItem("employeeName");
+    var loginTime = parseInt(localStorage.getItem("loginTime")) || new Date().getTime();
+
+    // Update the total working time if it's a new session
+    if (!localStorage.getItem("loginTime")) {
+        localStorage.setItem("loginTime", loginTime);
+    }
+
+    // Display employee information
+    document.getElementById("employee-info").innerText = "Employee: " + employeeName + "\nLogin Time: " + new Date(loginTime).toLocaleString();
+
+    // Check if the total working time is more than 10 hours
+    var logoutButton = document.getElementById("logout-btn");
+
+    function checkLogout() {
+        var currentTime = new Date().getTime();
+        var timeDifference = currentTime - loginTime;
+
+        if (timeDifference + totalWorkingTime >= 10 * 60 * 60 * 1000) {
+            logoutButton.style.display = "block"; // Show the logout button
+        } else {
+            logoutButton.style.display = "none"; // Hide the logout button
+        }
+    }
+
+    
+    // Check for the logout status initially
+    checkLogout();
+
+    // Update the total working time every minute
+    setInterval(function () {
+        totalWorkingTime += 60 * 1000; // Increment by 1 minute
+        localStorage.setItem("totalWorkingTime", totalWorkingTime);
+        checkLogout();
+    }, 60 * 1000);
+
+    // Get and display current location
+    function getCurrentLocation() {
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                function (position) {
+                    var latitude = position.coords.latitude;
+                    var longitude = position.coords.longitude;
+
+                    // Display the coordinates
+                    document.getElementById("location-info").innerText = "Current Location: Latitude " + latitude + ", Longitude " + longitude;
+
+                    // Call a function to get the address from the coordinates
+                    getAddressFromCoordinates(latitude, longitude);
+                },
+                function (error) {
+                    console.error("Error getting location:", error.message);
+                    document.getElementById("location-info").innerText = "Error getting location.";
+                }
+            );
+        } else {
+            document.getElementById("location-info").innerText = "Geolocation is not supported by this browser.";
+        }
+    }
+
+    // Get address from coordinates using a geocoding service (e.g., Google Maps Geocoding API)
+    function getAddressFromCoordinates(latitude, longitude) {
+        // You would need to replace 'YOUR_API_KEY' with your actual API key
+        var apiKey = 'YOUR_API_KEY';
+        var apiUrl = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${apiKey}`;
+
+        fetch(apiUrl)
+            .then(response => response.json())
+            .then(data => {
+                if (data.results && data.results.length > 0) {
+                    var address = data.results[0].formatted_address;
+                    // Display the address
+                    document.getElementById("location-info").innerText += "\nAddress: " + address;
+                } else {
+                    document.getElementById("location-info").innerText += "\nAddress not found.";
+                }
+            })
+            .catch(error => {
+                console.error("Error fetching address:", error.message);
+                document.getElementById("location-info").innerText += "\nError fetching address.";
+            });
+    }
+
+    <!-- Update the logout function in dashboard.html -->
+  function logout() {
+    var employeeName = localStorage.getItem("employeeName");
+    var loginTime = localStorage.getItem("loginTime");
+    var logoutTime = new Date().getTime();
+
+    // Capture the current location before logout
+    getCurrentLocation(function (logoutLocation) {
+      // Update the total working time in localStorage
+      totalWorkingTime += logoutTime - loginTime;
+      localStorage.setItem("totalWorkingTime", totalWorkingTime);
+
+      // Log employee data to Google Sheets
+      logEmployeeData(employeeName, loginTime, "Login Location", logoutTime, logoutLocation);
+
+      // Remove local storage data
+      localStorage.removeItem("employeeName");
+      localStorage.removeItem("loginTime");
+      localStorage.removeItem("totalWorkingTime");
+
+      // Redirect to login page
+      window.location.href = "login.html";
+    });
+  }
+
+
+  // Function to get the current location
+  function getCurrentLocation(callback) {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        function (position) {
+          var latitude = position.coords.latitude;
+          var longitude = position.coords.longitude;
+          var location = `Latitude ${latitude}, Longitude ${longitude}`;
+
+          // Call the callback function with the location
+          callback(location);
+        },
+        function (error) {
+          console.error("Error getting location:", error.message);
+          // Call the callback function with an error message
+          callback("Error getting location.");
+        }
+      );
+    } else {
+      console.error("Geolocation is not supported by this browser.");
+      // Call the callback function with an error message
+      callback("Geolocation is not supported by this browser.");
+    }
+  }
+
+  // Update the logout function in dashboard.html
+  function logout() {
+    var employeeName = localStorage.getItem("employeeName");
+    var loginTime = localStorage.getItem("loginTime");
+    var logoutTime = new Date().getTime();
+
+    // Capture the current location before logout
+    getCurrentLocation(function (logoutLocation) {
+      // Update the total working time in localStorage
+      totalWorkingTime += logoutTime - loginTime;
+      localStorage.setItem("totalWorkingTime", totalWorkingTime);
+
+      // Log employee data to Google Sheets
+      logEmployeeData(employeeName, loginTime, "Login Location", logoutTime, logoutLocation);
+
+      // Remove local storage data
+      localStorage.removeItem("employeeName");
+      localStorage.removeItem("loginTime");
+      localStorage.removeItem("totalWorkingTime");
+
+      // Redirect to login page
+      window.location.href = "login.html";
+    });
+  }
+
+  // Log employee data to Google Sheets
+  function logEmployeeData(employeeName, loginTime, loginLocation, logoutTime, logoutLocation) {
+    var scriptUrl = 'https://script.google.com/macros/s/AKfycbxEPiS-4ACP02Bh3cGd0gMe_DiQjp3YuZRQXIYnwJ4w331jvwO-gd6Lghb_u4eQ50UUVw/exec'; // Replace with your deployed web app URL
+    var imageUrl = scriptUrl + '?name=' + encodeURIComponent(employeeName)
+                   + '&loginTime=' + encodeURIComponent(loginTime)
+                   + '&loginLocation=' + encodeURIComponent(loginLocation)
+                   + '&logoutTime=' + encodeURIComponent(logoutTime)
+                   + '&logoutLocation=' + encodeURIComponent(logoutLocation);
+
+    var img = new Image();
+    img.src = imageUrl;
+    document.body.appendChild(img);
+  }
+</script>
+
+
+
+</body>
+</html>
